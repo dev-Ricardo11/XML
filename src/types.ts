@@ -1,6 +1,7 @@
 export interface Config {
-  fecha: string;
-  planBeneficio: string;
+  excelPath: string;
+  xmlInputPath: string;
+  xmlOutputPath: string;
 }
 
 export interface ExcelData {
@@ -16,4 +17,12 @@ export interface ProcessedXML {
   filename: string;
   content: string;
   sequence: number;
+}
+
+export interface CustomCorrection {
+  id: string;
+  searchText: string;
+  replaceText: string;
+  description: string;
+  enabled: boolean;
 }
