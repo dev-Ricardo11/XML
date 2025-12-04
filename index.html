@@ -1,21 +1,36 @@
 <!-- ...existing code... -->
-<!DOCTYPE html>
-<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>XML - NEPS</title>
+  <!-- ...existing code... -->
   <style>
-    /* Oculta posibles widgets de Bolt */
-    .bolt, .bolt-widget, [data-bolt], iframe[src*="bolt"], .bn-bolt {
+    /* fuerza ocultado amplio para cualquier widget/iframe relacionado con bolt */
+    iframe[src*="bolt"], iframe[src*="bolt.new"],
+    [class*="bolt"], [id*="bolt"], [data-bolt],
+    img[src*="bolt"], a[href*="bolt"] {
       display: none !important;
       visibility: hidden !important;
       pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      opacity: 0 !important;
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
+
+  <script>
+    // elimina nodos ya insertados y observa añadidos dinámicamente
+    function removeBoltNodes() {
+      document.querySelectorAll('iframe[src*="bolt"], iframe[src*="bolt.new"], [class*="bolt"], [id*="bolt"], [data-bolt], img[src*="bolt"], a[href*="bolt"]').forEach(n => n.remove());
+    }
+    removeBoltNodes();
+
+    const mo = new MutationObserver(() => removeBoltNodes());
+    mo.observe(document.documentElement || document.body, { childList: true, subtree: true });
+    // opcional: desconectar después de X segundos para evitar escucha indefinida
+    setTimeout(() => mo.disconnect(), 15000);
+  </script>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
