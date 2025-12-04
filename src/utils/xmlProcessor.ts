@@ -20,22 +20,28 @@ export async function processXMLFiles(
     // Debug: Log root tag
     console.log(`Root tag del archivo ${xmlFile.name}: ${xmlDoc.documentElement.tagName}`);
 
-    // Check if it's an AttachedDocument (Container)
-    const isAttachedDocument = xmlDoc.documentElement.localName === 'AttachedDocument';
+    // Check if it's an CONTENEDOR (Container)
+    const isCONTENEDOR = xmlDoc.documentElement.localName === 'CONTENEDOR';
 
     let facturaId = '';
     let innerDoc: Document | null = null;
     let innerXmlString = '';
     let hasCdata = false;
 
-    if (isAttachedDocument) {
-      console.log('Detectado AttachedDocument (Contenedor). Buscando Factura interna...');
+    if (isCONTENEDOR) {
+      console.log('Detectado CONTENEDOR (Contenedor). Buscando Factura interna...');
 
       const attachments = getElementsByLocalName(xmlDoc, 'Attachment');
+      console.log(`Attachments encontrados: ${attachments.length}`);
+      
       if (attachments.length > 0) {
         const externalRefs = getElementsByLocalName(attachments[0], 'ExternalReference');
+        console.log(`ExternalReference encontrados: ${externalRefs.length}`);
+        
         if (externalRefs.length > 0) {
           const descriptions = getElementsByLocalName(externalRefs[0], 'Description');
+          console.log(`Description encontrados: ${descriptions.length}`);
+          
           if (descriptions.length > 0) {
             // Check for CDATA section in the original text
             for (let i = 0; i < descriptions[0].childNodes.length; i++) {
@@ -54,16 +60,27 @@ export async function processXMLFiles(
 
             if (innerXmlString) {
               // Parse inner XML
+              console.log(`Intentando parsear XML interno (primeros 200 chars): ${innerXmlString.substring(0, 200)}`);
               innerDoc = parser.parseFromString(innerXmlString, 'text/xml');
-              facturaId = extractFacturaId(innerDoc);
-              console.log(`Factura interna encontrada con ID: ${facturaId}`);
+              
+              // Check for parsing errors
+              const parserError = innerDoc.getElementsByTagName('parsererror');
+              if (parserError.length > 0) {
+                console.error('Error al parsear XML interno:', parserError[0].textContent);
+                innerDoc = null;
+              } else {
+                facturaId = extractFacturaId(innerDoc);
+                console.log(`Factura interna encontrada con ID: ${facturaId}`);
+              }
+            } else {
+              console.warn('innerXmlString está vacío');
             }
           }
         }
       }
 
       if (!facturaId) {
-        console.warn('No se pudo extraer la factura interna del AttachedDocument');
+        console.warn('No se pudo extraer la factura interna del CONTENEDOR');
         facturaId = extractFacturaId(xmlDoc);
       }
     } else {
@@ -82,36 +99,68 @@ export async function processXMLFiles(
 
       let finalXmlString = '';
 
-      if (isAttachedDocument && innerDoc && innerXmlString) {
+      if (isCONTENEDOR && innerDoc && innerXmlString) {
+        console.log('Procesando CONTENEDOR con factura interna...');
+        
         // Process the inner Invoice
         const processedInnerDoc = processXML(innerDoc, matchingData);
         const serializer = new XMLSerializer();
         const processedInnerXmlString = serializer.serializeToString(processedInnerDoc);
 
+        console.log(`XML procesado (primeros 300 chars): ${processedInnerXmlString.substring(0, 300)}`);
+
         // Update the Container with the processed inner XML
         const attachments = getElementsByLocalName(xmlDoc, 'Attachment');
+        
+        if (attachments.length === 0) {
+          console.error('No se encontró el elemento Attachment en el contenedor');
+          continue;
+        }
+        
         const externalRefs = getElementsByLocalName(attachments[0], 'ExternalReference');
+        
+        if (externalRefs.length === 0) {
+          console.error('No se encontró el elemento ExternalReference');
+          continue;
+        }
+        
         const description = getElementsByLocalName(externalRefs[0], 'Description')[0];
+        
+        if (!description) {
+          console.error('No se encontró el elemento Description');
+          continue;
+        }
 
         if (hasCdata) {
           console.log('Reconstruyendo CDATA para la factura interna...');
+          // Clear all child nodes first
+          while (description.firstChild) {
+            description.removeChild(description.firstChild);
+          }
+          // Create and append CDATA
           const cdata = xmlDoc.createCDATASection(processedInnerXmlString);
-          description.textContent = ''; // Clear existing
           description.appendChild(cdata);
+          console.log('CDATA reconstruido exitosamente');
         } else {
+          console.log('Actualizando textContent sin CDATA...');
           description.textContent = processedInnerXmlString;
         }
 
         finalXmlString = serializer.serializeToString(xmlDoc);
+        console.log(`XML final generado (longitud: ${finalXmlString.length} caracteres)`);
 
       } else {
+        console.log('Procesando Invoice regular (sin contenedor)...');
         // Process regular Invoice
         const processedXml = processXML(xmlDoc, matchingData);
         const serializer = new XMLSerializer();
         finalXmlString = serializer.serializeToString(processedXml);
+        console.log(`XML procesado (longitud: ${finalXmlString.length} caracteres)`);
       }
 
       const filename = generateFilename(sequence, matchingData);
+
+      console.log(`✓ Generando archivo: ${filename}`);
 
       processedFiles.push({
         filename,
@@ -122,6 +171,9 @@ export async function processXMLFiles(
       sequence++;
     } else {
       console.warn(`✗ No se encontró match para factura: ${facturaId} en el archivo ${xmlFile.name}`);
+      console.warn(`  - Factura ID buscado: "${facturaId}"`);
+      console.warn(`  - NITs disponibles en Excel: ${excelData.map(d => d.nit).join(', ')}`);
+      console.warn(`  - Facturas disponibles en Excel: ${excelData.map(d => d.factura).join(', ')}`);
     }
   }
 
