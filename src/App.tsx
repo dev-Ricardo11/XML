@@ -331,7 +331,7 @@ function App() {
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-violet-600 font-bold mt-0.5">•</span>
-                    <p>El <strong>plum de beneficios</strong> se extrae automáticamente del Excel</p>
+                    <p>El <strong>plan de beneficios</strong> se extrae automáticamente del Excel</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-violet-600 font-bold mt-0.5">•</span>
